@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+}
+
+enum CreditLedgerType {
+  CREDIT_GRANTED
+  CREDIT_RESERVED
+  CREDIT_CONSUMED
+  CREDIT_RELEASED
+  CREDIT_ADJUSTED
+  PAYMENT_REFUNDED
+}
+
+enum ReferenceType {
+  SYSTEM
+  PAYMENT
+  REPORT
+  ADJUSTMENT
+}
+
+enum PaymentProvider {
+  PORTONE
+  TOSS_PAYMENTS
+  MANUAL
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELED
+  REFUNDED
+}
+
+enum ReportStatus {
+  DRAFT
+  QUEUED
+  GENERATING
+  RENDERING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+model User {
+  id              String         @id @default(cuid())
+  email           String         @unique
+  passwordHash    String
+  name            String
+  role            Role           @default(USER)
+  status          UserStatus     @default(ACTIVE)
+  emailVerifiedAt DateTime?
+  wallet          CreditWallet?
+  ledgerEntries   CreditLedger[]
+  payments        Payment[]
+  reports         Report[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([role, status])
+}
+
+model CreditWallet {
+  id            String         @id @default(cuid())
+  userId        String         @unique
+  balance       Int            @default(0)
+  lockedBalance Int            @default(0)
+  currency      String         @default("CREDIT")
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries       CreditLedger[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model CreditLedger {
+  id                 String           @id @default(cuid())
+  walletId           String
+  userId             String
+  type               CreditLedgerType
+  amount             Int
+  balanceAfter       Int
+  lockedBalanceAfter Int
+  reason             String
+  referenceType      ReferenceType    @default(SYSTEM)
+  referenceId        String?
+  idempotencyKey     String           @unique
+  metadata           Json?
+  wallet             CreditWallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([referenceType, referenceId])
+}
+
+model Payment {
+  id                String          @id @default(cuid())
+  userId            String
+  provider          PaymentProvider
+  orderId           String          @unique
+  externalPaymentId String?         @unique
+  amount            Int
+  creditAmount      Int
+  status            PaymentStatus   @default(PENDING)
+  rawPayload        Json?
+  approvedAt        DateTime?
+  canceledAt        DateTime?
+  refundedAt        DateTime?
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model Report {
+  id              String       @id @default(cuid())
+  userId          String
+  address         String
+  regionCode      String?
+  status          ReportStatus @default(DRAFT)
+  templateVersion String?
+  creditCost      Int          @default(1)
+  summary         String?
+  pdfUrl          String?
+  requestedAt     DateTime     @default(now())
+  completedAt     DateTime?
+  failedAt        DateTime?
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs            ReportJob[]
+
+  @@index([userId, requestedAt(sort: Desc)])
+}
+
+model ReportJob {
+  id           String    @id @default(cuid())
+  reportId     String
+  status       JobStatus @default(QUEUED)
+  attemptCount Int       @default(0)
+  lastError    String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  report       Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([reportId, createdAt(sort: Desc)])
+}
