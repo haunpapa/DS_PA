@@ -1,0 +1,25 @@
+﻿{
+  "name": "ds_pa",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI real estate location report service",
+  "scripts": {
+    "dev": "npm run dev --workspace web",
+    "build": "npm run build --workspace web",
+    "lint": "npm run lint --workspace web",
+    "start": "npm run start --workspace web"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/haunpapa/DS_PA.git"
+  },
+  "bugs": {
+    "url": "https://github.com/haunpapa/DS_PA/issues"
+  },
+  "homepage": "https://github.com/haunpapa/DS_PA#readme",
+  "license": "MIT"
+}
